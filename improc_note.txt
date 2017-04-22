@@ -1,0 +1,138 @@
+（二）imgproc模块
+    1.图像平滑处理（模糊）（注意内核大小均为奇数）
+        blur( src, dst, Size( i, i ), Point(-1,-1) );//归一化滤波
+            size(i,i):定义内核大小
+            Point():定义锚点，负值为中心点
+        GaussianBlur( src, dst, Size( i, i ), 0, 0 );//高斯滤波
+            0: x 方向标准方差， 如果是 0 则使用内核大小计算得到。
+            0: y 方向标准方差， 如果是 0 则使用内核大小计算得到。
+        medianBlur ( src, dst, i );//中值滤波
+            中值滤波，i为内核大小
+        bilateralFilter ( src, dst, i, i*2, i/2 );//双边滤波
+            i：像素的邻域直径
+            i*2: 颜色空间的标准方差
+            i/2: 坐标空间的标准方差(像素单位)
+    2.腐蚀与膨胀
+        首先要获得腐蚀操作内核：element=getStructuringElement( erosion_type,Size( 2x+1, 2y+1),Point( x, y ) );
+            erosion_type: MORPH_RECT // MORPH_CROSS // MORPH_ELLIPSE
+            Size():内核大小
+            Point():锚点位置
+        然后再进行腐蚀或膨胀操作：
+            erode( src, erosion_dst, element );
+            dilate(src,dilate_dst,element);
+    3.更多形态变换
+        首先要获得变换内核：element = getStructuringElement( morph_type, Size( 2x + 1, 2y+1 ), Point( a, b ) );
+        然后再进行形态变换：morphologyEx( src, dst, operation, element );
+            operation:取值2（开运算）3（闭运算）4（形态梯度）5（顶帽）6（黑帽）
+                Opening: MORPH_OPEN : 2
+                Closing: MORPH_CLOSE: 3
+                Gradient: MORPH_GRADIENT: 4
+                Top Hat: MORPH_TOPHAT: 5
+                Black Hat: MORPH_BLACKHAT: 6
+    4.图像金字塔
+        pyrDown( tmp, dst, Size( tmp.cols/2, tmp.rows/2 )
+        pyrUp( tmp,dst,Size(tmp.cols*2,tmp.rows*2))
+        注意：输入图像大小只接受2的幂次方
+    5.基本阈值操作
+        threshold( src_gray, dst, threshold_value, max_BINARY_value,threshold_type );
+            threshold_value:阈值大小
+            max_BINARY_value:设定的最大灰度值
+            threshold_type:0(二进制阈值)1（反二进制阈值）2（截断阈值）3（0阈值）4（反零阈值）
+    6.线性滤波器
+        filter2D(src, dst, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
+            ddepth:图像深度，-1则表示与源相等
+            kernel:图像的核//注意归一化
+            anchor:锚点位置
+            delta:卷积过程会加到每个像素
+    7.为图像加边界
+        copyMakeBorder( src, dst, top, bottom, left, right, borderType, value );
+            top,bottom,left,right:各自边界的宽度
+            borderType:BORDER_CONSTANT  BORDER_REPLICATE
+            value:颜色值，只有前一参数是常数的时候生效
+    8.Sobel求边界检测（一阶导数）
+        求导数：
+            //Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );//因为必定为3*3，所以少ksize参数
+            Sobel( src_gray, grad_x, ddepth, 1, 0, ksize, scale, delta, BORDER_DEFAULT );
+            //Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );//因为必定为3*3，所以少ksize参数
+            Sobel( src_gray, grad_y, ddepth, 0, 1, ksize, scale, delta, BORDER_DEFAULT );
+                ddepth:图像深度，这里要注意图像外溢，一般使用带符号浮点数
+                scale:有默认值为1
+                delta:加到每个像素，有默认值为0
+        求绝对值：convertScaleAbs( grad_x, abs_grad_x );
+        合并梯度：(近似)
+            addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
+                相当于：x*0.5 + y*0.5 + 0 =grad
+    9.Laplace求边界检测（二阶导数）
+        Laplacian( src_gray, dst, ddepth, kernel_size, scale, delta, BORDER_DEFAULT );
+        不需要分开x和y
+    10.canny求边缘检测
+        Canny( detected_edges, detected_edges, lowThreshold, lowThreshold*ratio, kernel_size );
+            ratio:高低阈值之比，一般为2或3
+        src.copyTo(dst,edges_dst);
+            edges_dst:是一个mask,能够掩码
+    11.Hough线变换
+        线变换前必须进行边缘检测，形成二值化图
+        标准霍夫线变换
+            vector<Vec2f> lines;
+            HoughLines(dst, lines, 1, CV_PI/180, 100, 0, 0 );
+            lines[i][0]:i线段距离（0，0）的距离
+            lines[i][1]:i线段斜率（具体参考http://www.opencv.org.cn/opencvdoc/2.3.2/html/doc/tutorials/imgproc/imgtrans/hough_lines/hough_lines.html#hough-lines）
+            1：参数极径 r 以像素值为单位的分辨率
+            CV_PI/180:参数极角 \theta 以弧度为单位的分辨率
+            100=threshold: 要”检测” 一条直线所需最少的的曲线交点
+            0=srn and stn: 参数默认为0
+        统计概率霍夫线变换
+            vector<Vec4i> lines;
+            HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
+                line[i][0],lines[i][1],lines[i][2],lines[i][3]:保存完整的一条线段
+                50=threshold: 要”检测” 一条直线所需最少的的曲线交点 
+                50=minLinLength: 能组成一条直线的最少点的数量. 点数量不足的直线将被抛弃.
+                10=maxLineGap: 能被认为在一条直线上的亮点的最大距离.
+    12.Hough圆变换
+        vector<Vec3f> circles;
+        HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 1, src_gray.rows/8, 200, 100, 0, 0 );
+            circles[i][0]/1/2:第i个圆的(x,y,r)
+            CV_HOUGH_GRADIENT: 指定检测方法. 现在OpenCV中只有霍夫梯度法
+            dp = 1: 累加器图像的反比分辨率
+            min_dist = src_gray.rows/8: 检测到圆心之间的最小距离
+            param_1 = 200: Canny边缘函数的高阈值
+            param_2 = 100: 圆心检测阈值.
+            min_radius = 0: 能检测到的最小圆半径, 默认为0.
+            max_radius = 0: 能检测到的最大圆半径, 默认为0
+    13.remap重映射
+        remap(src,dst,map_x,map_y,CV_INTER_LINEAR, BORDER_CONSTANT, Scalar(0,0, 0) );
+            map_x,map_y:重映射矩阵，如（x，y）对应（a*x+b,c*y+d),注意这里是对(x,y)的操作，而且要注意溢出
+    14.仿射变换
+        以三点获得仿射变换矩阵，：
+            Mat warp_mat =  getAffineTransform( srcTri, dstTri );
+        将图像运行仿射变换，得到变换后图像：
+            warpAffine( src, warp_dst, warp_mat, warp_dst.size() );
+        以圆或者仿射变换矩阵：
+            rot_mat = getRotationMatrix2D( center, angle, scale );
+            center为圆心
+            angle为角度
+            scale为缩放因子
+    15.直方图均化
+        equalizeHist( src, dst );只接受单通道灰度图
+    16.绘制直方图
+        vector<Mat> rgb_planes;
+        split( src, rgb_planes );
+            rgb_planes:RGB被分解成三个数组
+        calcHist( &rgb_planes[0], 1, 0, Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate );
+            r_hist：统计色彩的数量
+            &rgb_planes[0]: 输入数组(或数组集)
+            1: 输入数组的个数 (这里我们使用了一个单通道图像，我们也可以输入数组集 )
+            0: 需要统计的通道 (dim)索引 ，这里我们只是统计了灰度 (且每个数组都是单通道)所以只要写 0 就行了。
+            Mat(): 掩码( 0 表示忽略该像素)， 如果未定义，则不使用掩码
+            r_hist: 储存直方图的矩阵
+            1: 直方图维数
+            histSize: 每个维度的bin数目，即将【0，255】几等分，如果r_hist是N维，该值应该也是N维数组
+            histRange: 每个维度的取值范围，即原图像取值范围，如果r_hist是N维，则该值为N*2维数组，而且是:const float *histRange[]
+            uniform 和 accumulate: bin大小相同，清楚直方图痕迹
+        normalize(r_hist, r_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
+            （0，histImage.rows）:归一化的取值范围
+            NORM_MINMAX：使用最大最小值法
+            -1：输入输出数据类型一致
+            Mat（）：掩码
+
+
