@@ -11,7 +11,7 @@ using namespace cv;
 
 string dir_path= "/home/alpc40/opencv/mingpian/picture/";
 string img_path;
-string win_name="imageshow",win1="test",win2="test1",win3="dst";
+string win0="imageshow",win1="test",win2="test1",wind="dst";
 Mat src,src1,src_sp[3],src_ero,src_dil,draw,gray,dst;
 int dst_c=450,dst_r=270;
 
@@ -48,6 +48,7 @@ void imgproc()
 
     uchar *p,*p1;
     bilateralFilter(src,src1,10,25,25);//双边滤波，保持边缘的清晰度
+    //imshow(win1,src1);
     split(src1,src_sp);
     bool flag=0; 
     dst=Mat(dst_r,dst_c,CV_8UC3,Scalar(0,0,0));
@@ -57,10 +58,13 @@ void imgproc()
         //imshow(win_name,src_sp[c]);
         dilate(src_sp[c],src_dil,element);//膨胀
         erode(src_dil,src_ero,element);//腐蚀
+        imshow(win2,src_ero);
         for(l=0;l<N;l++)
         {
             if(flag==1) break;
             threshold(src_ero,gray,(l+1)*255/N,255,CV_THRESH_BINARY);
+            imshow(win1,gray);
+            waitKey(0);
             findContours(gray,contours,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE,Point(0,0));
             vector<vector<Point> > contours_poly(contours.size());
             draw=src.clone();
@@ -131,13 +135,12 @@ void imgproc()
             }
         }
     }
-    imshow(win1,src);
-    imshow(win2,dst);
+    imshow(wind,dst);
     waitKey(0);
 }
 
 
-int main()
+int main(int argc,char **argv)
 {
     DIR *dp;
     struct dirent *dirp;
@@ -152,10 +155,12 @@ int main()
         //printf("opadf");
         if(dirp->d_name[0]=='.')
             continue;
-        img_path=dir_path+dirp->d_name;
+        //img_path=dir_path+dirp->d_name;
+        img_path=dir_path+"testa.jpg";
         //cout<<img_path<<endl;
         src=imread(img_path,1);
     //    printf("%d %d\n",src.cols,src.rows);
+        imshow(win0,src);
         imgproc();        
     }
     exit(0);
