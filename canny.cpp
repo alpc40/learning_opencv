@@ -1,6 +1,5 @@
-#include "cv.hpp"
-#include "highgui.h"
-#include "cxcore.hpp"
+#include "imgproc.hpp"
+#include "highgui.hpp"
 #include <iostream>
 
 using namespace std;
@@ -28,8 +27,8 @@ int main(int argc,char **argv)
     }
     edge.create(img.size(),img.type());
     cvtColor(img,gray,COLOR_BGR2GRAY);
-    namedWindow("canny",1);
-    createTrackbar("track","canny",&eg,100,trackbarHandler);
+    namedWindow("canny",0);
+    createTrackbar("track","canny",&eg,1000,trackbarHandler);
     trackbarHandler(0,0);
     waitKey();
     return 0;

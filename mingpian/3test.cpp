@@ -11,7 +11,7 @@ using namespace cv;
 
 string dir_path= "/home/alpc40/opencv/mingpian/picture/";
 string img_path;
-string win0="imageshow",win1="test",win2="canny",win3="HoughLineP",win4="dst";
+string win0="win0",win1="win1",win2="win2",win3="win3",win4="win4";
 Mat src,src1,src2,src3,src_gray,src_ero,src_dil,draw,gray,gray_A,dctL,dst;
 int dst_c=450,dst_r=270;
 int size_elm;
@@ -26,17 +26,6 @@ double calAngle(Vec4i a,Vec4i b)
     bth=(bx==0)?90:atan((double)by/bx)*180/CV_PI;
     return fabs(ath-bth);
 }
-/*
-double 
-{
-    double dx1=a.x-b.x;
-    double dy1=a.y-b.y;
-    double dx2=c.x-b.x;
-    double dy2=c.y-b.y;
-    double angle=(dx1*dx2+dy1*dy2)/sqrt((dx1*dx1+dy1*dy1)*(dx2*dx2+dy2*dy2)+1e-10);
-    return acos(angle)*180/3.141592653;
-}
-*/
 
 double calD(Point2f a,Point2f b)
 {
@@ -51,6 +40,7 @@ double calDPL(Vec4i l,int x0,int y0)
     double b=l[0]-l[2];
     double c=l[2]*l[1]-l[3]*l[0];
     double dis=fabs(a*x0+b*y0+c)/sqrt(a*a+b*b);
+    return dis;
 }
 
 Point calCross(Vec4i a,Vec4i b)
@@ -78,27 +68,21 @@ Point calCross(Vec4i a,Vec4i b)
     }
     return p;
   }
-double isNB(Point a,Point b,Vec4i c)
+bool isNB(Point a,Point b,Vec4i c)
 {
-    double x0=b.x-a.x,y0=b.y-a.y;
-    double x1=c[2]-c[1],y1=c[3]-c[2];
-    double x2,y2;
-    double len=sqrt(x0*x0+y0*y0),len2;
-    if(x0*x1>0 || y0*y1>0)//向量同向，b与（c[0],c[1]）比较
-    {
-        x2=b.x-c[0];y2=b.y-c[1];
-        if(x0*x2<0 || y0*y2<0) return 0;
-        len2=sqrt(x2*x2+y2*y2);
-        return len2>len?len:len2;
-    }
-    else if(x0*x1<0 || y0*y1<0)//向量反向，a与（c[2],c[3]）比较
-    {
-        x2=c[2]-a.x;y2=c[3]-a.y;
-        if(x0*x2<0 || y0*y2<0) return 0;
-        len2=sqrt(x2*x2+y2*y2);
-        return len2>len?len:len2;
-    }
+    double x0=c[0]-a.x,y0=c[1]-a.y,x1=c[2]-a.x,y1=c[3]-a.y;
+    double x2=c[0]-b.x,y2=c[1]-b.y,x3=c[2]-b.y,y3=c[3]-a.y;
+
+    if((x0*x1<0 || y0*y1<0) || (x2*x3<0 || y2*y3<0)||(x0*x2<0 ||y0*y2<0) || (x1*x3<0 || y1*y3<0))
+        return 1;
+    if(x0==0 && y0==0 && x1==0 && y1==0 && x2==0 && y2==0 && x3==0 && y3==0)
+        return 1;
     return 0;
+}
+
+void printL(Vec4i a)
+{
+    printf("(%d,%d),(%d,%d)",a[0],a[1],a[2],a[3]);
 }
 
 int findLines(vector<Vec4i> lines,double tMax)
@@ -106,12 +90,22 @@ int findLines(vector<Vec4i> lines,double tMax)
     int i,j,k,l,ct;
     int s=lines.size();
     double th,dis;
-    bool m[100]={0};
+    bool m[1000]={0};
     bool mark[100][100]={0};
     Point cross[100][100];
     if(s<4) return 0;
+    if(s>1000) return 0;
     printf("there is %d lines\n",s);
     //判断重合的线：夹角小于10度，且距离小于10
+    printf("mark=%d\n",mark[0][2]);
+    for(i=0;i<s;i++)
+    {
+        if((lines[i][0]<3 && lines[i][2]<3)||(src.cols-lines[i][0]<3 && src.cols-lines[i][2]<3))
+            m[i]=1;
+        if((lines[i][1]<3 && lines[i][3]<3)||(src.rows-lines[i][1]<3 && src.rows-lines[i][3]<3))
+            m[i]=1;
+        
+    }
     for(i=0;i<s;i++)
     {
         if(m[i]==1) continue;
@@ -122,13 +116,15 @@ int findLines(vector<Vec4i> lines,double tMax)
             if(th<10 || th>170)
             {
                 dis=calDPL(lines[i],lines[j][0],lines[j][1]);
-                if(dis<10)
+                if(dis<30)
                 {
+                    //printf("d");
                     m[j]=1;
                 }
             }
         }
     }
+    printf("mark=%d\n",mark[0][2]);
     //删除重合的线段
     vector<Vec4i>::iterator it=lines.begin();
     for(i=s;i>=0;i--)
@@ -141,7 +137,7 @@ int findLines(vector<Vec4i> lines,double tMax)
     printf("after %d lines\n",s);
     if(s<4) return 0;
     if(s>100) return 2;
-    printf("b\n");
+    //printf("b\n");
     Mat src3=Mat(src.size(),CV_8UC1,Scalar(0));
     for(int i=0;i<lines.size();i++)
     {
@@ -153,7 +149,7 @@ int findLines(vector<Vec4i> lines,double tMax)
         for(j=i+1;j<s;j++)
         {
             th=calAngle(lines[i],lines[j]);
-            if(fabs(th-90)<tMax )
+            if(fabs(th-90)<50 )
             {
                 mark[i][j]=1;
                 mark[j][i]=1;
@@ -162,8 +158,7 @@ int findLines(vector<Vec4i> lines,double tMax)
         }
 
     }
-    printf("c\n");
-    //
+    //printf("c\n");
     memset(m,0,sizeof(m));
     Point p[4];
     for(i=0;i<s;i++)
@@ -198,8 +193,8 @@ int findLines(vector<Vec4i> lines,double tMax)
                                 //控制高长比在0.3~0.7
                                 for(g=0;g<4;g++)
                                 {
-                                    maxA=len[g];A=-1;
-                                    for(int g1=g+1;g1<4;g1++)
+                                    maxA=len[g];
+                                    for(g1=g+1;g1<4;g1++)
                                     {
                                         if(len[g1]>maxA)
                                         {
@@ -208,20 +203,34 @@ int findLines(vector<Vec4i> lines,double tMax)
                                             len[g]=maxA;
                                         }
                                     }
+                                    //printf("%lf ",len[g]);
                                 }
-                                if(len[3]/len[0]<0.3 || len[2]/len[1]>0.7) continue;
+                               // printf("\n");
+                                if(len[3]/len[0]<0.3 || len[2]/len[1]>0.8) continue;
+                                
+                                printf("e\n");
+                                printf("%d,%d,%d,%d",i,j,k,l);
+                                printf("(%d,%d),(%d,%d)\n",cross[i][j].x,cross[i][j].y,cross[j][k].x,cross[j][k].y);
+                                printf("(%d,%d),(%d,%d)\n",cross[k][l].x,cross[k][l].y,cross[l][i].x,cross[l][i].y);
+                                printf("\n");
+                                
                                 //下面判断边缘线必须在连接线内部,且内部线长必须大于20
-                                if(isNB(cross[i][j],cross[l][i],lines[i])<20) continue;
-                                if(isNB(cross[j][k],cross[i][j],lines[j])<20) continue;
-                                if(isNB(cross[k][l],cross[j][k],lines[k])<20) continue;
-                                if(isNB(cross[l][i],cross[k][l],lines[l])<20) continue;
+                                /*
+                                if(isNB(cross[i][j],cross[l][i],lines[i])==0) continue;
+                                if(isNB(cross[j][k],cross[i][j],lines[j])==0) continue;
+                                if(isNB(cross[k][l],cross[j][k],lines[k])==0) continue;
+                                if(isNB(cross[l][i],cross[k][l],lines[l])==0) continue;
+                                */
+                                //printf("(%d,%d),(%d,%d)\n",cross[l][i].x,cross[l][i].y,cross[k][l].x,cross[k][l].y);
+                                //printf("(%d,%d),(%d,%d)\n\n",lines[l][0],lines[l][1],lines[l][2],lines[l][3]);
                                 //下面判断面积是否符合要求
                                 v.push_back(cross[i][j]);
                                 v.push_back(cross[j][k]);
                                 v.push_back(cross[k][l]);
                                 v.push_back(cross[l][i]);
-                                double a=contourArea(v); 
-                                if(a>areaT*0.9 || a<areaT*0.3) continue;
+                                double a=contourArea(v);
+                                printf("area=%lf\n",a/areaT);
+                                if(a>areaT*0.9 || a<areaT*0.1) continue;
                                 //
                                 p[0]=cross[i][j];
                                 p[1]=cross[j][k];
@@ -230,7 +239,7 @@ int findLines(vector<Vec4i> lines,double tMax)
                                 dst=src.clone();
                                 for(int g=0;g<4;g++)
                                 {
-                                    printf("(%d %d)\n",p[g].x,p[g].y);
+                                  //  printf("(%d %d)\n",p[g].x,p[g].y);
                                     line(dst,p[g],p[(g+1)%4],Scalar(0,255,0),2,CV_AA);
                                 }
                                 imshow("ad",dst);
@@ -262,61 +271,30 @@ void imgproc()
     Mat kernel=(Mat_<char>(3,3)<< 0,-1,0,-1,5,-1,0,-1,0);
     filter2D(src,src,src.depth(),kernel);
     areaT=src.cols*src.rows;
-    //blur(src,src1,Size(7,7),Point(-1,-1));//模糊
     Canny(src,src2,1000,3000,5);
-    //cvtColor(srcC,gray,CV_BGR2GRAY);
-    /*
-    dilate(gray,src_dil,element);//膨胀
-    erode(src_dil,src_ero,element);//腐蚀
-    imshow(win1,src_ero);
-    */
-    //Canny(gray,src2,1000,3000,5);
-    imshow(win2,src2);
-    dilate(src2,src_dil,element);//膨胀
-    erode(src_dil,src_ero,element1);//腐蚀
+    imshow(win1,src2);
+    //dilate(src2,src_dil,element);
+    //erode(src_dil,src_ero,element);
+
+
+    dilate(src2,src_dil,element);
+    erode(src_dil,src_ero,element1);
+    imshow(win2,src_ero);
     bitwise_not(src_ero,gray);
-    imshow(win3,gray);
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
-    findContours(src_ero,contours,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE,Point(0,0));
+    findContours(gray,contours,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE,Point(0,0));
     Mat a=Mat::zeros(src.size(),CV_8UC1);
     for(int i=0;i<contours.size();i++)
     {
         double cA=contourArea(contours[i]);
-//        if(cA>area*0.01 && cA<area*0.8)
-//        if(cA>1000.0 && cA<area*0.8)
-        {
-            
-            drawContours(a,contours,i,Scalar(255),1,8,hierarchy,0,Point());
-        }
+        drawContours(a,contours,i,Scalar(255),1,8,hierarchy,0,Point());
     }
     imshow(win4,a);
-    HoughLinesP(a,lines,1,CV_PI/180,30,src.cols/10,20);
+    HoughLinesP(a,lines,1,CV_PI/180,50,src.cols/15,8);
+
+    //HoughLinesP(src_ero,lines,1,CV_PI/180,100,src.cols/20,8);
     findLines(lines,20);
-    //膨胀、腐蚀是为了去掉字符等小块物体的影响
-    /*
-    int size_elm=src.cols/75;//定义腐蚀膨胀窗口大小，与图像大小有关
-    Mat element=getStructuringElement(MORPH_RECT,Size(size_elm*2+1,size_elm*2+1),Point(size_elm,size_elm));
-    dilate(gray,src_dil,element);//膨胀
-    erode(src_dil,src_ero,element);//腐蚀
-    imshow("adf",src_ero);
-    int maxV=10000,minV=0,v;
-    
-    while(maxV>minV)
-    {
-        v=(maxV+minV)/2;
-        Canny(src_ero,src2,v,v*3,5);
-        imshow(win2,src2);
-        
-        HoughLinesP(src2,lines,1,CV_PI/180,20,100,10);
-        int a=findLines(lines,10);
-        if(a==1) break;
-        else if(a==0)
-            maxV=v;
-        else 
-            minV=v+1;    
-        waitKey(0);
-    }*/
     waitKey(0);
 }
 
@@ -330,6 +308,7 @@ int main(int argc,char **argv)
     {
         if(dirp->d_name[0]=='.') continue;
         img_path=dir_path+dirp->d_name;
+        //img_path=dir_path+"22103613.jpg";
         src=imread(img_path,1);
         namedWindow(win0,WINDOW_KEEPRATIO);
         namedWindow(win1,WINDOW_KEEPRATIO); 
